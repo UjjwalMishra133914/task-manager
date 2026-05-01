@@ -1,16 +1,23 @@
 type Props = {
-  placeholder: string;
+  placeholder?: string;
   type?: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  value?: string; // ✅ ADD THIS
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 };
 
-export default function Input({ placeholder, type = "text", onChange }: Props) {
+export default function Input({
+  placeholder,
+  type = "text",
+  value,
+  onChange,
+}: Props) {
   return (
     <input
       type={type}
       placeholder={placeholder}
+      value={value} // ✅ FIX
       onChange={onChange}
-      className="border w-full p-2 rounded mb-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+      className="w-full border p-2 rounded mb-2"
     />
   );
 }
