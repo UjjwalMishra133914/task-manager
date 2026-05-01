@@ -1,5 +1,7 @@
 import { connectDB } from "@/lib/db";
 import Task from "@/models/Task";
+import Project from "@/models/Project";
+import User from "@/models/User";
 import { verifyToken } from "@/lib/auth";
 import mongoose from "mongoose";
 
@@ -15,22 +17,26 @@ export async function GET(req: Request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 👑 Admin → all tasks
+    let tasks = [];
+
     if (user.role === "admin") {
-      const tasks = await Task.find().sort({ createdAt: -1 });
-      return Response.json(tasks);
+      tasks = await Task.find()
+        .populate("assignedTo", "name email")
+        .populate("project", "name")
+        .sort({ createdAt: -1 });
+    } else {
+      tasks = await Task.find({
+        assignedTo: user.id,
+      })
+        .populate("assignedTo", "name email")
+        .populate("project", "name")
+        .sort({ createdAt: -1 });
     }
 
-    // 👤 Member → only assigned tasks
-    const tasks = await Task.find({
-      assignedTo: new mongoose.Types.ObjectId(user.id),
-    }).sort({ createdAt: -1 });
-
-    return Response.json(tasks);
-
+    return Response.json(tasks || []);
   } catch (error) {
     console.log("GET TASK ERROR ❌", error);
-    return Response.json({ error: "Server error" }, { status: 500 });
+    return Response.json([], { status: 200 });
   }
 }
 
@@ -50,20 +56,47 @@ export async function POST(req: Request) {
       );
     }
 
-    const { title } = await req.json();
+    const { title, assignedTo, projectId } = await req.json();
 
-    if (!title) {
+    if (!title || !assignedTo || !projectId) {
       return Response.json(
-        { error: "Title is required" },
+        { error: "All fields required" },
         { status: 400 }
       );
     }
 
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return Response.json(
+        { error: "Project not found" },
+        { status: 404 }
+      );
+    }
+
+    // ✅ SMART FIX: auto-add user if not in project
+    const isMember = project.members.some(
+      (m: any) => m.toString() === assignedTo
+    );
+
+    if (!isMember) {
+      project.members.push(
+        new mongoose.Types.ObjectId(assignedTo)
+      );
+      await project.save();
+    }
+
+    // ✅ Create task
     const task = await Task.create({
       title,
       status: "Pending",
-      assignedTo: new mongoose.Types.ObjectId(user.id),
+      assignedTo: new mongoose.Types.ObjectId(assignedTo),
+      project: new mongoose.Types.ObjectId(projectId),
     });
+
+    // ✅ Populate for frontend
+    await task.populate("assignedTo", "name email");
+    await task.populate("project", "name");
 
     return Response.json(task);
 

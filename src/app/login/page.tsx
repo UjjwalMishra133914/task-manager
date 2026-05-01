@@ -25,7 +25,7 @@ export default function Login() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json", // ✅ important
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
       });
@@ -38,11 +38,14 @@ export default function Login() {
         return;
       }
 
-      // ✅ Save token + role
+      // ✅ 🔥 IMPORTANT FIX (ADD THESE)
       localStorage.setItem("token", data.token);
-      localStorage.setItem("role", data.role);
+      localStorage.setItem("role", data.user.role);
+      localStorage.setItem("name", data.user.name);
+      localStorage.setItem("email", data.user.email);
 
       // redirect
+      console.log("LOGIN DATA:", data);
       router.push("/dashboard");
 
     } catch (error) {
@@ -71,9 +74,11 @@ export default function Login() {
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        <Button text={loading ? "Logging in..." : "Login"} onClick={handleLogin} />
+        <Button
+          text={loading ? "Logging in..." : "Login"}
+          onClick={handleLogin}
+        />
 
-        {/* Signup Redirect */}
         <p className="text-sm mt-3 text-center">
           Don’t have an account?{" "}
           <span
