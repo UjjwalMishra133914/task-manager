@@ -1,14 +1,18 @@
 import { connectDB } from "@/lib/db";
 import Task from "@/models/Task";
-import User from "@/models/User";
 import { verifyToken } from "@/lib/auth";
+import { NextRequest } from "next/server";
 
+// ✅ UPDATE TASK STATUS
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
+
+    // ✅ FIX: await params
+    const { id } = await context.params;
 
     const token = req.headers.get("authorization")?.split(" ")[1];
     const user: any = verifyToken(token || "");
@@ -19,29 +23,18 @@ export async function PUT(
 
     const { status } = await req.json();
 
-    const task = await Task.findById(params.id);
-
-    if (!task) {
-      return Response.json({ error: "Task not found" }, { status: 404 });
-    }
-
-    if (
-      user.role !== "admin" &&
-      task.assignedTo.toString() !== user.id
-    ) {
-      return Response.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    task.status = status;
-    await task.save();
-
-    await task.populate("assignedTo", "name email");
-    await task.populate("project", "name");
+    const task = await Task.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    )
+      .populate("assignedTo", "name email")
+      .populate("project", "name");
 
     return Response.json(task);
 
   } catch (error) {
-    console.log("UPDATE ERROR ❌", error);
+    console.log("UPDATE TASK ERROR ❌", error);
     return Response.json({ error: "Server error" }, { status: 500 });
   }
 }
